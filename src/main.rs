@@ -1,9 +1,11 @@
 #![allow(unused_imports)]
 use std::{
     error::Error,
-    io::{BufRead, BufReader, Read, Write},
+    io::{BufRead, BufReader, BufWriter, Read, Write},
     net::{TcpListener, TcpStream},
 };
+
+use bytes::buf;
 
 fn main() {
     // You can use print statements as follows for debugging, they'll be visible when running tests.
@@ -17,7 +19,7 @@ fn main() {
         match stream {
             Ok(mut _stream) => {
                 println!("accepted new connection");
-                handle_connection(&mut _stream);
+                handle_connection(_stream);
             }
             Err(e) => {
                 println!("error: {}", e);
@@ -26,6 +28,7 @@ fn main() {
     }
 }
 
+#[derive(Debug)]
 struct Request {
     message_size: u32,
     request_api_key: u16,
@@ -58,25 +61,19 @@ impl Request {
             correlation_id,
         })
     }
-
-    fn log(&self) {
-        println!("[Request] MessageSize: {}", self.message_size);
-        println!("[Request] RequestAPIKey: {}", self.request_api_key);
-        println!("[Request] RequestAPIVersion: {}", self.request_api_version);
-        println!("[Request] CorrelationID: {}", self.correlation_id);
-    }
 }
 
-fn handle_connection(mut stream: &TcpStream) {
-    let request = Request::new(stream).unwrap();
-    request.log();
-    let message_size: [u8; 4] = [0; 4];
-    // let correlation_id: [u8; 4] = [0, 0, 0, 7];
-    stream
+fn handle_connection(stream: TcpStream) {
+    let mut buf_writer = BufWriter::new(stream);
+    let request = Request::new(buf_writer.get_ref()).unwrap();
+    println!("{:?}", request);
+
+    let message_size: [u8; 4] = [10; 4];
+    buf_writer
         .write_all(&message_size)
         .expect("fail to write message size");
-    stream
+
+    buf_writer
         .write_all(&request.correlation_id.to_be_bytes())
         .expect("fail to write correlation id");
-    println!("sampe sini");
 }
