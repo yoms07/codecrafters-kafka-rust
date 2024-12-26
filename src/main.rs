@@ -19,7 +19,7 @@ fn main() {
         match stream {
             Ok(mut _stream) => {
                 println!("accepted new connection");
-                handle_connection(_stream);
+                handle_connection(&mut _stream);
             }
             Err(e) => {
                 println!("error: {}", e);
@@ -63,7 +63,7 @@ impl Request {
     }
 }
 
-fn handle_connection(stream: TcpStream) {
+fn handle_connection(stream: &mut TcpStream) {
     let mut buf_writer = BufWriter::new(stream);
     let request = Request::new(buf_writer.get_ref()).unwrap();
     println!("{:?}", request);
