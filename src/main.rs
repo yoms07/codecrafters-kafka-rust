@@ -1,6 +1,6 @@
 #![allow(unused_imports)]
 use std::{
-    io::{BufReader, Write},
+    io::{BufRead, BufReader, Read, Write},
     net::{TcpListener, TcpStream},
 };
 
@@ -10,13 +10,13 @@ fn main() {
 
     // Uncomment this block to pass the first stage
     //
-    let listener = TcpListener::bind("127.0.0.1:9092").unwrap();
+    let listener = TcpListener::bind("127.0.0.1:9092").expect("Listening error");
 
     for stream in listener.incoming() {
         match stream {
-            Ok(_stream) => {
-                handle_connection(&_stream);
+            Ok(mut _stream) => {
                 println!("accepted new connection");
+                handle_connection(&_stream);
             }
             Err(e) => {
                 println!("error: {}", e);
@@ -26,7 +26,6 @@ fn main() {
 }
 
 fn handle_connection(mut stream: &TcpStream) {
-    let buf_reader = BufReader::new(stream);
     let message_size: [u8; 4] = [0; 4];
     let correlation_id: [u8; 4] = [0, 0, 0, 7];
     stream
@@ -35,4 +34,5 @@ fn handle_connection(mut stream: &TcpStream) {
     stream
         .write_all(&correlation_id)
         .expect("fail to write correlation id");
+    println!("sampe sini");
 }
