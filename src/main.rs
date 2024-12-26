@@ -19,7 +19,7 @@ fn main() {
         match stream {
             Ok(mut _stream) => {
                 println!("accepted new connection");
-                handle_connection(&mut _stream);
+                handle_connection(&_stream);
             }
             Err(e) => {
                 println!("error: {}", e);
@@ -34,6 +34,7 @@ struct Request {
     request_api_key: u16,
     request_api_version: u16,
     correlation_id: u32,
+    data: Vec<u8>,
 }
 
 impl Request {
@@ -54,20 +55,33 @@ impl Request {
         stream.read_exact(&mut correlation_id_bytes)?;
         let correlation_id = u32::from_be_bytes(correlation_id_bytes);
 
+        let mut data_bytes: Vec<u8> = Vec::new();
+        stream.read_to_end(&mut data_bytes);
+
         Ok(Request {
             message_size,
             request_api_key,
             request_api_version,
             correlation_id,
+            data: data_bytes,
         })
+    }
+    fn log(&self) {
+        println!("[REQUEST] message_size: {}", self.message_size);
+        println!("[REQUEST] request_api_key: {}", self.request_api_key);
+        println!(
+            "[REQUEST] request_api_version: {}",
+            self.request_api_version
+        );
+        println!("[REQUEST] data: {:?}", self.data);
     }
 }
 
-fn handle_connection(stream: &mut TcpStream) {
+fn handle_connection(stream: &TcpStream) {
     let mut buf_writer = BufWriter::new(stream);
     let request = Request::new(buf_writer.get_ref()).unwrap();
     println!("{:?}", request);
-
+    request.log();
     let message_size: [u8; 4] = [10; 4];
     buf_writer
         .write_all(&message_size)
