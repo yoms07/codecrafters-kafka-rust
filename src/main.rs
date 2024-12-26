@@ -16,7 +16,7 @@ fn main() {
         match stream {
             Ok(mut _stream) => {
                 println!("accepted new connection");
-                handle_connection(&_stream);
+                handle_connection(&mut _stream);
             }
             Err(e) => {
                 println!("error: {}", e);
