@@ -50,6 +50,9 @@ async fn handle_connection(mut stream: TcpStream) -> tokio::io::Result<()> {
             18 => {
                 handler::api_version::handle(&request, &mut response);
             }
+            75 => {
+                handler::describe_topic_partitions::handle(&request, &mut response);
+            }
             _ => {
                 response.body.put_u16(35); // error code
             }
