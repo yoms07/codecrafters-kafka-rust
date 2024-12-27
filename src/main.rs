@@ -1,11 +1,12 @@
 #![allow(unused_imports)]
 use std::{
+    borrow::BorrowMut,
     error::Error,
     io::{BufRead, BufReader, BufWriter, Read, Write},
     net::{TcpListener, TcpStream},
 };
 
-use bytes::buf;
+use bytes::{buf, Buf, BufMut};
 
 fn main() {
     // You can use print statements as follows for debugging, they'll be visible when running tests.
@@ -38,32 +39,23 @@ struct Request {
 }
 
 impl Request {
-    fn new(mut stream: &TcpStream) -> Result<Request, Box<dyn Error>> {
-        let mut message_size_bytes: [u8; 4] = [0; 4];
-        stream.read_exact(&mut message_size_bytes)?;
-        let message_size = u32::from_be_bytes(message_size_bytes);
+    fn new<T: Read>(mut stream: T) -> Result<Request, Box<dyn Error>> {
+        let mut buffer: [u8; 1024] = [0; 1024];
+        stream.read(&mut buffer)?;
 
-        let mut request_api_key_bytes: [u8; 2] = [0; 2];
-        stream.read_exact(&mut request_api_key_bytes)?;
-        let request_api_key = u16::from_be_bytes(request_api_key_bytes);
+        let mut request = buffer.as_slice();
 
-        let mut request_api_version_bytes: [u8; 2] = [0; 2];
-        stream.read_exact(&mut request_api_version_bytes)?;
-        let request_api_version = u16::from_be_bytes(request_api_version_bytes);
-
-        let mut correlation_id_bytes: [u8; 4] = [0; 4];
-        stream.read_exact(&mut correlation_id_bytes)?;
-        let correlation_id = u32::from_be_bytes(correlation_id_bytes);
-
-        let mut data_bytes: Vec<u8> = Vec::new();
-        stream.read_to_end(&mut data_bytes);
+        let message_size: u32 = request.get_u32();
+        let request_api_key = request.get_u16();
+        let request_api_version = request.get_u16();
+        let correlation_id = request.get_u32();
 
         Ok(Request {
             message_size,
             request_api_key,
             request_api_version,
             correlation_id,
-            data: data_bytes,
+            data: vec![0],
         })
     }
     fn log(&self) {
@@ -73,21 +65,21 @@ impl Request {
             "[REQUEST] request_api_version: {}",
             self.request_api_version
         );
+        println!("[REQUEST] correlation_id: {}", self.correlation_id);
         println!("[REQUEST] data: {:?}", self.data);
     }
 }
 
-fn handle_connection(stream: &TcpStream) {
-    let mut buf_writer = BufWriter::new(stream);
-    let request = Request::new(buf_writer.get_ref()).unwrap();
-    println!("{:?}", request);
+fn handle_connection(mut stream: &TcpStream) {
+    let mut buf_reader = BufReader::new(stream);
+    let mut buf_writer = BufWriter::new(&mut stream);
+    let request = Request::new(&mut buf_reader).unwrap();
     request.log();
-    let message_size: [u8; 4] = [10; 4];
-    buf_writer
-        .write_all(&message_size)
-        .expect("fail to write message size");
 
     buf_writer
+        .write_all(&request.message_size.to_be_bytes())
+        .expect("fail to write");
+    buf_writer
         .write_all(&request.correlation_id.to_be_bytes())
-        .expect("fail to write correlation id");
+        .expect("fail to write");
 }
