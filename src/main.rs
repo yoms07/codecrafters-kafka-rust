@@ -10,7 +10,7 @@ use bytes::{buf, Buf, BufMut};
 
 mod protocol;
 
-use protocol::request::Request;
+use protocol::{request::Request, response::Response};
 
 fn main() {
     // You can use print statements as follows for debugging, they'll be visible when running tests.
@@ -39,24 +39,30 @@ fn handle_connection(mut stream: &TcpStream) {
     let request = Request::new(&mut buf_reader).expect("Error parsing request");
     request.log();
 
-    buf_writer
-        .write_all(&request.message_size.to_be_bytes())
-        .expect("fail to write");
-    buf_writer
-        .write_all(&request.correlation_id.to_be_bytes())
-        .expect("fail to write");
+    let mut response = Response::build_from_request(&request);
 
-    match request.request_api_version {
-        0..4 => {
-            buf_writer
-                .write_all(&request.request_api_version.to_be_bytes())
-                .expect("error write version");
+    match request.request_api_key {
+        18 => {
+            if request.request_api_version <= 4 {
+                response.body.put_u16(0); // error code
+                response.body.put_u8(2); // array length + 1
+                                         // first element
+                response.body.put_u16(18); // api key
+                response.body.put_u16(0); // min version
+                response.body.put_u16(4); // max version
+                response.body.put_u8(0); // TAG_BUFFER length
+                response.body.put_u32(0); // Throttle time
+                response.body.put_u8(0); // TAG_BUFFER length
+            } else {
+                response.body.put_u16(35);
+            }
         }
         _ => {
-            let api_version_not_supported_error_code: [u8; 2] = [0, 35];
-            buf_writer
-                .write_all(&api_version_not_supported_error_code)
-                .expect("error write version not supported");
+            response.body.put_u16(35); // error code
         }
     }
+
+    response
+        .send(&mut buf_writer)
+        .expect("error sending response");
 }
