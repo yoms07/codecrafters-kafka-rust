@@ -82,4 +82,18 @@ fn handle_connection(mut stream: &TcpStream) {
     buf_writer
         .write_all(&request.correlation_id.to_be_bytes())
         .expect("fail to write");
+
+    match request.request_api_version {
+        0..4 => {
+            buf_writer
+                .write_all(&request.request_api_version.to_be_bytes())
+                .expect("error write version");
+        }
+        _ => {
+            let api_version_not_supported_error_code: [u8; 2] = [0, 35];
+            buf_writer
+                .write_all(&api_version_not_supported_error_code)
+                .expect("error write version not supported");
+        }
+    }
 }
