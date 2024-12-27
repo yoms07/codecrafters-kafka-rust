@@ -1,3 +1,4 @@
+use core::fmt;
 use std::{error::Error, io::Read};
 
 use bytes::Buf;
@@ -11,10 +12,18 @@ pub struct Request {
     pub data: Vec<u8>,
 }
 
+#[derive(Debug)]
+pub enum RequestError {
+    ClientDisconnected,
+}
+
 impl Request {
-    pub fn new<T: Read>(mut stream: T) -> Result<Request, Box<dyn Error>> {
+    pub fn new<T: Read>(mut stream: T) -> Result<Request, RequestError> {
         let mut buffer: [u8; 1024] = [0; 1024];
-        stream.read(&mut buffer)?;
+        let read_size = stream.read(&mut buffer).unwrap();
+        if read_size == 0 {
+            return Err(RequestError::ClientDisconnected);
+        }
 
         let mut request = buffer.as_slice();
 
