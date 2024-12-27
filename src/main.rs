@@ -3,6 +3,7 @@ use std::{borrow::BorrowMut, error::Error, time::Duration};
 
 use bytes::{buf, Buf, BufMut};
 
+mod handler;
 mod protocol;
 
 use protocol::{
@@ -47,19 +48,7 @@ async fn handle_connection(mut stream: TcpStream) -> tokio::io::Result<()> {
 
         match request.request_api_key {
             18 => {
-                if request.request_api_version <= 4 {
-                    response.body.put_u16(0); // error code
-                    response.body.put_u8(2); // array length + 1
-                                             // first element
-                    response.body.put_u16(18); // api key
-                    response.body.put_u16(0); // min version
-                    response.body.put_u16(4); // max version
-                    response.body.put_u8(0); // TAG_BUFFER length
-                    response.body.put_u32(0); // Throttle time
-                    response.body.put_u8(0); // TAG_BUFFER length
-                } else {
-                    response.body.put_u16(35);
-                }
+                handler::api_version::handle(&request, &mut response);
             }
             _ => {
                 response.body.put_u16(35); // error code
