@@ -1,8 +1,13 @@
 use core::fmt;
-use std::{error::Error, io::Read};
+use std::error::Error;
 
 use bytes::Buf;
-
+use tokio::io;
+use tokio::{
+    self,
+    io::{AsyncBufRead, AsyncRead, AsyncReadExt, BufReader},
+    net::TcpStream,
+};
 #[derive(Debug)]
 pub struct Request {
     pub message_size: u32,
@@ -15,12 +20,29 @@ pub struct Request {
 #[derive(Debug)]
 pub enum RequestError {
     ClientDisconnected,
+    IoError(io::Error),
+}
+
+impl fmt::Display for RequestError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            RequestError::ClientDisconnected => write!(f, "Client disconnected"),
+            RequestError::IoError(ref e) => write!(f, "IO error: {}", e),
+        }
+    }
 }
 
 impl Request {
-    pub fn new<T: Read>(mut stream: T) -> Result<Request, RequestError> {
+    pub async fn new(stream: &mut TcpStream) -> Result<Request, RequestError> {
         let mut buffer: [u8; 1024] = [0; 1024];
-        let read_size = stream.read(&mut buffer).unwrap();
+
+        let mut reader = BufReader::new(stream);
+
+        let read_size = reader
+            .read(&mut buffer)
+            .await
+            .map_err(RequestError::IoError)?;
+
         if read_size == 0 {
             return Err(RequestError::ClientDisconnected);
         }

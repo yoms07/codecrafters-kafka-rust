@@ -1,11 +1,5 @@
 #![allow(unused_imports)]
-use std::{
-    borrow::BorrowMut,
-    error::Error,
-    io::{BufRead, BufReader, BufWriter, Read, Write},
-    net::{TcpListener, TcpStream},
-    time::Duration,
-};
+use std::{borrow::BorrowMut, error::Error, time::Duration};
 
 use bytes::{buf, Buf, BufMut};
 
@@ -15,38 +9,47 @@ use protocol::{
     request::{Request, RequestError},
     response::Response,
 };
+use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter};
+use tokio::net::{TcpListener, TcpStream};
 
-fn main() {
+#[tokio::main]
+async fn main() -> tokio::io::Result<()> {
     // You can use print statements as follows for debugging, they'll be visible when running tests.
     println!("Logs from your program will appear here!");
 
     // Uncomment this block to pass the first stage
     //
-    let listener = TcpListener::bind("127.0.0.1:9092").expect("Listening error");
-
-    for stream in listener.incoming() {
-        match stream {
-            Ok(mut _stream) => {
-                println!("accepted new connection");
-                handle_connection(&_stream);
+    let listener = TcpListener::bind("127.0.0.1:9092").await?;
+    loop {
+        let (stream, _) = listener.accept().await?;
+        tokio::spawn(async move {
+            if let Err(e) = handle_connection(stream).await {
+                eprintln!("Error handling client: {}", e);
             }
-            Err(e) => {
-                println!("error: {}", e);
-            }
-        }
+        });
     }
+
+    // for stream in listener.incoming() {
+    //     match stream {
+    //         Ok(mut _stream) => {
+    //             println!("accepted new connection");
+    //             handle_connection(&_stream);
+    //         }
+    //         Err(e) => {
+    //             println!("error: {}", e);
+    //         }
+    //     }
+    // }
 }
 
-fn handle_connection(mut stream: &TcpStream) {
-    stream
-        .set_read_timeout(Some(Duration::new(5, 0)))
-        .expect("cannot set read timeout");
+async fn handle_connection(mut stream: TcpStream) -> tokio::io::Result<()> {
     loop {
-        let mut buf_reader = BufReader::new(stream);
-        let mut buf_writer = BufWriter::new(&mut stream);
-        let request = match Request::new(&mut buf_reader) {
+        let request = match Request::new(&mut stream).await {
             Ok(r) => r,
             Err(RequestError::ClientDisconnected) => {
+                break;
+            }
+            Err(RequestError::IoError(err)) => {
                 break;
             }
         };
@@ -76,7 +79,9 @@ fn handle_connection(mut stream: &TcpStream) {
         }
 
         response
-            .send(&mut buf_writer)
+            .send(&mut stream)
+            .await
             .expect("error sending response");
     }
+    Ok(())
 }

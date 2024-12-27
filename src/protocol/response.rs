@@ -1,5 +1,10 @@
 use std::{error::Error, io::Write};
 
+use tokio::{
+    io::{AsyncWriteExt, BufWriter},
+    net::TcpStream,
+};
+
 use super::request::Request;
 
 static MESSAGE_SIZE_OFFSET: usize = 4;
@@ -21,19 +26,25 @@ impl Response {
         return CORRELATION_ID_SIZE_OFFSET + self.body.len() as u32;
     }
 
-    pub fn send<T: Write>(&self, writer: &mut T) -> Result<(), Box<dyn Error>> {
-        self.log();
-        writer.write_all(&self.message_size().to_be_bytes())?;
-        writer.flush()?;
-        writer.write_all(&self.correlation_id.to_be_bytes())?;
-        writer.flush()?;
+    pub async fn send(&self, stream: &mut TcpStream) -> Result<(), Box<dyn Error>> {
+        self.log().await;
+        let mut writer = BufWriter::new(stream);
 
-        writer.write_all(&self.body)?;
-        writer.flush()?;
+        // Write the message size (u32)
+        writer.write_all(&self.message_size().to_be_bytes()).await?;
+
+        // Write the correlation ID (u32)
+        writer.write_all(&self.correlation_id.to_be_bytes()).await?;
+
+        // Write the body of the response
+        writer.write_all(&self.body).await?;
+
+        writer.flush().await?;
+
         Ok(())
     }
 
-    pub fn log(&self) {
+    pub async fn log(&self) {
         println!("[RESPONSE] message_size: {}", self.message_size());
         println!("[RESPONSE] correlation_id: {}", self.correlation_id);
         println!("[RESPONSE] data: {:?}", self.body);
