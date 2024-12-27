@@ -28,18 +28,6 @@ async fn main() -> tokio::io::Result<()> {
             }
         });
     }
-
-    // for stream in listener.incoming() {
-    //     match stream {
-    //         Ok(mut _stream) => {
-    //             println!("accepted new connection");
-    //             handle_connection(&_stream);
-    //         }
-    //         Err(e) => {
-    //             println!("error: {}", e);
-    //         }
-    //     }
-    // }
 }
 
 async fn handle_connection(mut stream: TcpStream) -> tokio::io::Result<()> {
