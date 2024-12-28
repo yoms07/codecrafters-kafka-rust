@@ -22,11 +22,7 @@ async fn main() -> tokio::io::Result<()> {
     println!("Logs from your program will appear here!");
 
     let cluster_metadata = Arc::new(match metadata::cluster::parse_metadata_cluster().await {
-        Ok(res) => {
-            println!("SUCCESS");
-            println!("{:?}", res);
-            res
-        }
+        Ok(res) => res,
         Err(e) => {
             eprintln!("erorr parsing: {}", e);
             process::exit(1);
@@ -67,7 +63,9 @@ async fn handle_connection(
 
         match request.request_api_key {
             1 => {
-                handler::fetch::handle(&request, &mut response);
+                handler::fetch::handle(&request, &mut response)
+                    .await
+                    .unwrap();
             }
             18 => {
                 handler::api_version::handle(&request, &mut response);

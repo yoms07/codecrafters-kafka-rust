@@ -102,7 +102,6 @@ pub async fn handle<'a>(
 async fn parse(req: &Request) -> anyhow::Result<DescribeRequest> {
     let mut cursor = Cursor::new(&req.data);
     let array_length = cursor.async_read_uvarint().await? - 1;
-    println!("array_length: {}", array_length);
 
     let mut topics: Vec<DescribeTopic> = Vec::new();
 
