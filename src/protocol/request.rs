@@ -59,6 +59,7 @@ impl Request {
 
         let client_id_length = request.get_u16() as usize;
         let client_id_byte = request.copy_to_bytes(client_id_length);
+        request.get_u8(); // tag buffer
 
         Ok(Request {
             message_size,
