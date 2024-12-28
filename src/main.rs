@@ -1,5 +1,7 @@
 #![allow(unused_imports)]
-use std::{borrow::BorrowMut, clone, error::Error, process, sync::Arc, time::Duration};
+use std::{
+    borrow::BorrowMut, clone, error::Error, fs::metadata, process, sync::Arc, time::Duration,
+};
 
 use bytes::{buf, Buf, BufMut};
 
@@ -8,7 +10,7 @@ mod handler;
 mod metadata;
 mod protocol;
 
-use metadata::cluster::Cluster;
+use metadata::cluster::{Cluster, ClusterSummary};
 use protocol::{
     request::{Request, RequestError},
     response::Response,
@@ -24,8 +26,13 @@ async fn main() -> tokio::io::Result<()> {
     let cluster_metadata = Arc::new(match metadata::cluster::parse_metadata_cluster().await {
         Ok(res) => res,
         Err(e) => {
-            eprintln!("erorr parsing: {}", e);
-            process::exit(1);
+            println!("error parsing metadata - first try");
+            tokio::time::sleep(Duration::from_millis(100)).await;
+            let second_try = metadata::cluster::parse_metadata_cluster().await;
+            if second_try.is_err() {
+                process::exit(1);
+            }
+            second_try.unwrap()
         }
     });
 

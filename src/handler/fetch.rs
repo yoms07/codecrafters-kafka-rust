@@ -64,7 +64,8 @@ pub async fn handle<'a>(
             res.body.put_u8((1 + 1) as u8);
 
             res.body.put_i32(0); // partition index
-            let error_code = match available_topics.iter().find(|x| x.uuid.eq(&topic.topic_id)) {
+            let topic = available_topics.iter().find(|x| x.uuid.eq(&topic.topic_id));
+            let error_code = match topic {
                 Some(_) => 0,
                 None => 100,
             };
@@ -77,7 +78,17 @@ pub async fn handle<'a>(
             res.body.put_u8((0 + 1) as u8); // aborted transaction length
 
             res.body.put_i32(0); // prefered read replica
-            res.body.write_uvarint((0 + 1) as u64);
+
+            match topic {
+                Some(topic) => {
+                    let bytes_data = cluster
+                        .get_partition_record_from_file(&topic.name, 0)
+                        .await?;
+                    res.body.write_uvarint((bytes_data.len() + 1) as u64);
+                    res.body.put_slice(&bytes_data);
+                }
+                _ => res.body.write_uvarint((0 + 1) as u64),
+            };
             res.body.put_u8(0); // partitions tag buffer
 
             res.body.put_u8(0); // topic tag buffer

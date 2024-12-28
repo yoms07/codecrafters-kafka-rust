@@ -1,5 +1,5 @@
 use crate::custom_trait::cursor::{AsyncReadVarint, ReadUUID};
-use std::{any, io::Cursor, path::Path};
+use std::{any, fs::File, io::Cursor, path::Path};
 
 use crate::protocol::response;
 use anyhow::Ok;
@@ -260,6 +260,11 @@ async fn parse_partition_record(
 pub trait ClusterSummary {
     fn partitions(&self) -> Vec<&PartitionValueRecord>;
     fn topics(&self) -> Vec<&TopicValueRecord>;
+    async fn get_partition_record_from_file(
+        &self,
+        topic_name: &str,
+        partition_index: i32,
+    ) -> anyhow::Result<Vec<u8>>;
 }
 
 impl ClusterSummary for Cluster {
@@ -281,5 +286,18 @@ impl ClusterSummary for Cluster {
                 _ => None,
             })
             .collect::<Vec<&TopicValueRecord>>()
+    }
+
+    async fn get_partition_record_from_file(
+        &self,
+        topic_name: &str,
+        partition_index: i32,
+    ) -> anyhow::Result<Vec<u8>> {
+        let path = format!(
+            "/tmp/kraft-combined-logs/{}-{}/00000000000000000000.log",
+            topic_name, partition_index
+        );
+        let file = tokio::fs::read(path).await?;
+        Ok(file)
     }
 }
