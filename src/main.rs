@@ -66,6 +66,9 @@ async fn handle_connection(
         let mut response = Response::build_from_request(&request);
 
         match request.request_api_key {
+            1 => {
+                handler::fetch::handle(&request, &mut response);
+            }
             18 => {
                 handler::api_version::handle(&request, &mut response);
             }
