@@ -63,7 +63,7 @@ async fn handle_connection(
 
         match request.request_api_key {
             1 => {
-                handler::fetch::handle(&request, &mut response)
+                handler::fetch::handle(&request, &mut response, cluster_metadata)
                     .await
                     .unwrap();
             }

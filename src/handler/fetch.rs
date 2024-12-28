@@ -1,3 +1,4 @@
+use core::error;
 use std::{any, io::Cursor};
 
 use anyhow::Ok;
@@ -6,6 +7,7 @@ use tokio::io::AsyncReadExt;
 
 use crate::{
     custom_trait::cursor::{AsyncReadVarint, ReadUUID, WriteVarint},
+    metadata::cluster::{Cluster, ClusterSummary},
     protocol::{request::Request, response::Response},
 };
 
@@ -44,11 +46,14 @@ pub struct ForgottenTopicData {
     pub partitions: Vec<i32>, // List of partitions
 }
 
-pub async fn handle<'a>(req: &Request, res: &mut Response<'a>) -> anyhow::Result<()> {
-    println!("api versoin: {}", req.request_api_version);
+pub async fn handle<'a>(
+    req: &Request,
+    res: &mut Response<'a>,
+    cluster: &Cluster,
+) -> anyhow::Result<()> {
     if req.request_api_version == 16 {
+        let available_topics = cluster.topics();
         let parsed = parse(req).await?;
-        println!("{:?}", parsed);
         res.body.put_u32(0x00); // throttle time
         res.body.put_u16(0x00); // error code
         res.body.put_u32(0x00); // session_id
@@ -59,7 +64,11 @@ pub async fn handle<'a>(req: &Request, res: &mut Response<'a>) -> anyhow::Result
             res.body.put_u8((1 + 1) as u8);
 
             res.body.put_i32(0); // partition index
-            res.body.put_i16(100); // error code
+            let error_code = match available_topics.iter().find(|x| x.uuid.eq(&topic.topic_id)) {
+                Some(_) => 0,
+                None => 100,
+            };
+            res.body.put_i16(error_code); // error code
             res.body.put_i64(0); // high watermark
             res.body.put_i64(0); // last_stable_offset
             res.body.put_i64(0); // log_start_offset
