@@ -4,6 +4,7 @@ use std::{borrow::BorrowMut, error::Error, time::Duration};
 use bytes::{buf, Buf, BufMut};
 
 mod handler;
+mod metadata;
 mod protocol;
 
 use protocol::{
@@ -17,6 +18,16 @@ use tokio::net::{TcpListener, TcpStream};
 async fn main() -> tokio::io::Result<()> {
     // You can use print statements as follows for debugging, they'll be visible when running tests.
     println!("Logs from your program will appear here!");
+
+    match metadata::cluster::parse_metadata_cluster().await {
+        Ok(res) => {
+            println!("SUCCESS");
+            println!("{:?}", res);
+        }
+        Err(e) => {
+            eprintln!("erorr parsing: {}", e)
+        }
+    }
 
     // Uncomment this block to pass the first stage
     //
